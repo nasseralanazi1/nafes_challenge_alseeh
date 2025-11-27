@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  nameAr    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  questions Question[]
+  results   Result[]
+}
+
+model Question {
+  id         Int     @id @default(autoincrement())
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  text       String
+  options    String  // JSON array of options
+  correctAnswer Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  answers    Answer[]
+}
+
+model Student {
+  id        Int     @id @default(autoincrement())
+  name      String
+  email     String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  results   Result[]
+  answers   Answer[]
+}
+
+model Result {
+  id        Int     @id @default(autoincrement())
+  studentId Int
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  categoryId Int
+  category  Category @relation(fields: [categoryId], references: [id])
+  score     Int
+  totalQuestions Int
+  percentage Float
+  passed    Boolean @default(false)
+  certificateUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Answer {
+  id        Int     @id @default(autoincrement())
+  studentId Int
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionId Int
+  question  Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedAnswer Int
+  isCorrect Boolean
+  createdAt DateTime @default(now())
+}
+
+model Admin {
+  id        Int     @id @default(autoincrement())
+  username  String  @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
