@@ -89,8 +89,7 @@ export default function HomePage({ onStartQuiz, onAdminClick }) {
               </div>
               <div className="bg-purple-50 rounded-lg p-6 flex items-center justify-between shadow-sm border border-purple-100">
                 <div className="text-right flex-1">
-                  <p className="text-gray-600 text-sm mb-1">مدير المدرسة</p>
-                  <p className="text-gray-800 font-bold text-lg">تركي بن مطير العنزي</p>
+                  <p className="text-gray-600 text-sm mb-1">مدير المدرسة</p>                  <p className="text-gray-800 font-bold text-lg">تركي بن مطير العنزي</p>
                 </div>
                 <div className="bg-purple-500 text-white rounded-full w-14 h-14 flex items-center justify-center ml-4 flex-shrink-0">
                   <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
