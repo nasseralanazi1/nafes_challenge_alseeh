@@ -45,7 +45,7 @@ app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
     
     // التحقق من بيانات المسؤول
-    if (username === 'nassr' && password === 'Abolama5025$') {
+    if (username === 'ناصر العنزي' && password === 'Abolama5025$') {
       const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
       return res.json({ token, success: true });
     }
@@ -105,6 +105,59 @@ app.get('/api/questions/category/:categoryId', async (req, res) => {
       where: { categoryId: parseInt(categoryId) }
     });
     res.json(questions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5.5 الحصول على أسئلة عشوائية من فئة معينة
+app.get('/api/questions/category/:categoryId/random/:count', async (req, res) => {
+  try {
+    const { categoryId, count } = req.params;
+    const questions = await prisma.question.findMany({
+      where: { categoryId: parseInt(categoryId) }
+    });
+    
+    // تحويل العدد إلى رقم
+    const questionsCount = Math.min(parseInt(count), questions.length);
+    
+    // اختيار أسئلة عشوائية
+    const shuffled = questions.sort(() => Math.random() - 0.5);
+    const randomQuestions = shuffled.slice(0, questionsCount);
+    
+    res.json(randomQuestions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5.6 الحصول على أسئلة للاختبار الشامل (10 من كل قسم)
+app.get('/api/questions/comprehensive', async (req, res) => {
+  try {
+    // الأقسام الثلاثة (بدون الشامل)
+    const categoryNames = ['reading', 'math', 'science'];
+    const comprehensiveQuestions = [];
+    
+    for (const categoryName of categoryNames) {
+      const category = await prisma.category.findUnique({
+        where: { name: categoryName }
+      });
+      
+      if (category) {
+        const questions = await prisma.question.findMany({
+          where: { categoryId: category.id }
+        });
+        
+        // اختيار 10 أسئلة عشوائية من كل قسم
+        const shuffled = questions.sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, 10);
+        comprehensiveQuestions.push(...selected);
+      }
+    }
+    
+    // خلط الأسئلة النهائية
+    const finalQuestions = comprehensiveQuestions.sort(() => Math.random() - 0.5);
+    res.json(finalQuestions);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -205,6 +258,34 @@ app.post('/api/results', async (req, res) => {
     }
     
     res.json({ result, passed, percentage });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 9.5 الحصول على الإحصائيات
+app.get('/api/stats', async (req, res) => {
+  try {
+    // عدد الطلاب الناجحين
+    const passedResults = await prisma.result.findMany({
+      where: { passed: true },
+      distinct: ['studentId']
+    });
+    
+    // إجمالي المحاولات
+    const totalAttempts = await prisma.result.count();
+    
+    // عدد الطلاب المنفردين
+    const totalStudents = await prisma.student.count();
+    
+    // حساب نسبة النجاح
+    const percentage = totalAttempts > 0 ? Math.round((passedResults.length / totalStudents) * 100) : 0;
+    
+    res.json({
+      passed: passedResults.length,
+      total: totalAttempts,
+      percentage: percentage
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
