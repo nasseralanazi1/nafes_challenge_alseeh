@@ -10,6 +10,8 @@ export default function AdminDashboard({ token, onLogout }) {
   const [formData, setFormData] = useState({
     categoryId: '',
     text: '',
+    image: null,
+    imageUrl: '',
     options: ['', '', '', ''],
     correctAnswer: 0
   })
@@ -64,32 +66,55 @@ export default function AdminDashboard({ token, onLogout }) {
   const handleAddQuestion = async (e) => {
     e.preventDefault()
     try {
+      // Validate inputs
+      if (!formData.text.trim()) {
+        alert('الرجاء إدخال نص السؤال')
+        return
+      }
+      if (formData.options.filter(o => o.trim()).length < 2) {
+        alert('الرجاء إدخال خيارين على الأقل')
+        return
+      }
+      
+      const formDataToSend = new FormData()
+      formDataToSend.append('categoryId', selectedCategory)
+      formDataToSend.append('text', formData.text.trim())
+      formDataToSend.append('options', JSON.stringify(formData.options.filter(o => o.trim())))
+      formDataToSend.append('correctAnswer', formData.correctAnswer)
+      if (formData.image) {
+        formDataToSend.append('image', formData.image)
+      }
+      if (formData.imageUrl) {
+        formDataToSend.append('imageUrl', formData.imageUrl)
+      }
+
       const response = await fetch('/api/questions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          categoryId: selectedCategory,
-          text: formData.text,
-          options: formData.options.filter(o => o),
-          correctAnswer: formData.correctAnswer
-        })
+        body: formDataToSend
       })
 
       if (response.ok) {
+        alert('تم إضافة السؤال بنجاح')
         setFormData({
           categoryId: '',
           text: '',
+          image: null,
+          imageUrl: '',
           options: ['', '', '', ''],
           correctAnswer: 0
         })
         setShowAddForm(false)
         fetchQuestions()
+      } else {
+        const error = await response.json()
+        alert('خطأ: ' + (error.error || 'فشل إضافة السؤال'))
       }
     } catch (error) {
       console.error('Error adding question:', error)
+      alert('خطأ: ' + error.message)
     }
   }
 
@@ -100,7 +125,6 @@ export default function AdminDashboard({ token, onLogout }) {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         })
-
         if (response.ok) {
           fetchQuestions()
         }
@@ -111,16 +135,15 @@ export default function AdminDashboard({ token, onLogout }) {
   }
 
   const handleDeleteAllQuestions = async () => {
-    if (confirm('هل أنت متأكد من حذف جميع الأسئلة في هذا القسم؟')) {
+    if (confirm('هل أنت متأكد من حذف جميع الأسئلة؟')) {
       try {
-        const response = await fetch(`/api/categories/${selectedCategory}/questions`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-
-        if (response.ok) {
-          fetchQuestions()
+        for (const question of questions) {
+          await fetch(`/api/questions/${question.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
         }
+        fetchQuestions()
       } catch (error) {
         console.error('Error deleting questions:', error)
       }
@@ -128,25 +151,17 @@ export default function AdminDashboard({ token, onLogout }) {
   }
 
   const handlePrintQuestions = () => {
+    const printContent = questions.map((q, idx) => 
+      `${idx + 1}. ${q.text}\n${JSON.parse(q.options).map((opt, i) => `  ${String.fromCharCode(97 + i)}) ${opt}`).join('\n')}\n`
+    ).join('\n')
+    
     const printWindow = window.open('', '', 'height=600,width=800')
-    let html = '<h1>الأسئلة</h1>'
-    questions.forEach((q, index) => {
-      const options = JSON.parse(q.options)
-      html += `<div style="margin: 20px 0; page-break-inside: avoid;">
-        <h3>${index + 1}. ${q.text}</h3>
-        <ul>`
-      options.forEach((opt, i) => {
-        html += `<li>${opt}</li>`
-      })
-      html += `</ul></div>`
-    })
-    printWindow.document.write(html)
-    printWindow.document.close()
+    printWindow.document.write('<pre>' + printContent + '</pre>')
     printWindow.print()
   }
 
   const handleDownloadResults = () => {
-    let csv = 'اسم الطالب,النسبة,التاريخ\n'
+    let csv = 'اسم الطالب,النسبة المئوية,التاريخ\n'
     passedResults.forEach(r => {
       csv += `${r.student.name},${r.percentage.toFixed(1)}%,${new Date(r.createdAt).toLocaleDateString('ar-SA')}\n`
     })
@@ -164,12 +179,20 @@ export default function AdminDashboard({ token, onLogout }) {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800">لوحة التحكم</h1>
-          <button
-            onClick={onLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg"
-          >
-            تسجيل الخروج
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={() => window.location.href = '/'}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            >
+              الصفحة الرئيسية
+            </button>
+            <button
+              onClick={onLogout}
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg"
+            >
+              تسجيل الخروج
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -266,6 +289,35 @@ export default function AdminDashboard({ token, onLogout }) {
                   </div>
 
                   <div className="mb-4">
+                    <label className="block text-gray-700 font-semibold mb-2">رفع صورة (اختياري)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0]
+                        if (file) {
+                          setFormData({ ...formData, image: file })
+                        }
+                      }}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                    />
+                    {formData.image && (
+                      <p className="text-sm text-green-600 mt-2">✓ تم اختيار الصورة: {formData.image.name}</p>
+                    )}
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-gray-700 font-semibold mb-2">أو رابط صورة (اختياري)</label>
+                    <input
+                      type="url"
+                      value={formData.imageUrl}
+                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                      placeholder="https://example.com/image.jpg"
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  <div className="mb-4">
                     <label className="block text-gray-700 font-semibold mb-2">الخيارات</label>
                     {formData.options.map((option, index) => (
                       <input
@@ -313,6 +365,9 @@ export default function AdminDashboard({ token, onLogout }) {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-800 mb-2">{index + 1}. {q.text}</h4>
+                        {q.imageUrl && (
+                          <img src={q.imageUrl} alt="سؤال" className="max-w-xs mb-2 rounded" />
+                        )}
                         <ul className="text-sm text-gray-600">
                           {JSON.parse(q.options).map((opt, i) => (
                             <li key={i}>• {opt}</li>
@@ -340,23 +395,27 @@ export default function AdminDashboard({ token, onLogout }) {
                   <thead>
                     <tr className="bg-gray-200">
                       <th className="px-4 py-2 text-right">اسم الطالب</th>
-                      <th className="px-4 py-2 text-right">القسم</th>
-                      <th className="px-4 py-2 text-right">النسبة</th>
+                      <th className="px-4 py-2 text-right">النسبة المئوية</th>
                       <th className="px-4 py-2 text-right">التاريخ</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {passedResults.map(result => (
-                      <tr key={result.id} className="border-b hover:bg-gray-50">
+                    {passedResults.map((result, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="px-4 py-2">{result.student.name}</td>
-                        <td className="px-4 py-2">{result.category.nameAr}</td>
-                        <td className="px-4 py-2 font-semibold text-green-600">{result.percentage.toFixed(1)}%</td>
+                        <td className="px-4 py-2 text-purple-600 font-semibold">{result.percentage.toFixed(1)}%</td>
                         <td className="px-4 py-2">{new Date(result.createdAt).toLocaleDateString('ar-SA')}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              <button
+                onClick={handleDownloadResults}
+                className="mt-6 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg"
+              >
+                تنزيل Excel
+              </button>
             </div>
           )}
         </div>

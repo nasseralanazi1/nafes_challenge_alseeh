@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
 
 dotenv.config();
 
@@ -80,14 +81,27 @@ app.get('/api/categories', async (req, res) => {
 });
 
 // 4. إضافة سؤال
-app.post('/api/questions', verifyToken, async (req, res) => {
+// Setup multer for file uploads
+const upload = multer({ storage: multer.memoryStorage() });
+
+app.post('/api/questions', verifyToken, upload.single('image'), async (req, res) => {
   try {
-    const { categoryId, text, options, correctAnswer } = req.body;
+    const { categoryId, text, options, correctAnswer, imageUrl } = req.body;
+    let finalImageUrl = imageUrl || null;
+    
+    // If file was uploaded, convert to base64 or store URL
+    if (req.file) {
+      // For now, store as base64 data URL
+      const base64 = req.file.buffer.toString('base64');
+      finalImageUrl = `data:${req.file.mimetype};base64,${base64}`;
+    }
+    
     const question = await prisma.question.create({
       data: {
         categoryId: parseInt(categoryId),
         text,
-        options: JSON.stringify(options),
+        imageUrl: finalImageUrl,
+        options: JSON.stringify(JSON.parse(options)),
         correctAnswer: parseInt(correctAnswer)
       }
     });
@@ -134,11 +148,17 @@ app.get('/api/questions/category/:categoryId/random/:count', async (req, res) =>
 // 5.6 الحصول على أسئلة للاختبار الشامل (10 من كل قسم)
 app.get('/api/questions/comprehensive', async (req, res) => {
   try {
-    // الأقسام الثلاثة (بدون الشامل)
-    const categoryNames = ['reading', 'math', 'science'];
+    // النسب المئوية: قراءة 30%، رياضيات 40%، علوم 30%
+    const categoryDistribution = {
+      'reading': 0.30,
+      'math': 0.40,
+      'science': 0.30
+    };
+    
+    const totalQuestions = 10;
     const comprehensiveQuestions = [];
     
-    for (const categoryName of categoryNames) {
+    for (const [categoryName, percentage] of Object.entries(categoryDistribution)) {
       const category = await prisma.category.findUnique({
         where: { name: categoryName }
       });
@@ -148,9 +168,12 @@ app.get('/api/questions/comprehensive', async (req, res) => {
           where: { categoryId: category.id }
         });
         
-        // اختيار 10 أسئلة عشوائية من كل قسم
+        // حساب عدد الأسئلة لهذا القسم
+        const count = Math.round(totalQuestions * percentage);
+        
+        // اختيار أسئلة عشوائية من القسم
         const shuffled = questions.sort(() => Math.random() - 0.5);
-        const selected = shuffled.slice(0, 10);
+        const selected = shuffled.slice(0, count);
         comprehensiveQuestions.push(...selected);
       }
     }
@@ -164,14 +187,22 @@ app.get('/api/questions/comprehensive', async (req, res) => {
 });
 
 // 6. تحديث سؤال
-app.put('/api/questions/:id', verifyToken, async (req, res) => {
+app.put('/api/questions/:id', verifyToken, upload.single('image'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { text, options, correctAnswer } = req.body;
+    const { text, options, correctAnswer, imageUrl } = req.body;
+    let finalImageUrl = imageUrl || null;
+    
+    if (req.file) {
+      const base64 = req.file.buffer.toString('base64');
+      finalImageUrl = `data:${req.file.mimetype};base64,${base64}`;
+    }
+    
     const question = await prisma.question.update({
       where: { id: parseInt(id) },
       data: {
         text,
+        imageUrl: finalImageUrl,
         options: JSON.stringify(options),
         correctAnswer: parseInt(correctAnswer)
       }

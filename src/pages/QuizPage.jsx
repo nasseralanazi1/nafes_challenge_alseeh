@@ -109,7 +109,7 @@ export default function QuizPage({ categoryId, onComplete, onBack }) {
       })
 
       const result = await response.json()
-      onComplete(result)
+      onComplete(result, studentName, questions, answers)
     } catch (error) {
       console.error('Error submitting quiz:', error)
     }

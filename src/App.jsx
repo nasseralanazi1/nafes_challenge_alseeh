@@ -3,13 +3,16 @@ import HomePage from './pages/HomePage'
 import QuizPage from './pages/QuizPage'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
-import ResultPage from './pages/ResultPage'
+import ResultsPage from './pages/ResultsPage'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home')
   const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken'))
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [quizResult, setQuizResult] = useState(null)
+  const [studentName, setStudentName] = useState('')
+  const [questions, setQuestions] = useState([])
+  const [answers, setAnswers] = useState([])
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken')
@@ -35,8 +38,11 @@ function App() {
     setCurrentPage('quiz')
   }
 
-  const handleQuizComplete = (result) => {
+  const handleQuizComplete = (result, studentNameParam, questionsParam, answersParam) => {
     setQuizResult(result)
+    setStudentName(studentNameParam)
+    setQuestions(questionsParam)
+    setAnswers(answersParam)
     setCurrentPage('result')
   }
 
@@ -72,8 +78,12 @@ function App() {
       )}
       
       {currentPage === 'result' && quizResult && (
-        <ResultPage 
+        <ResultsPage 
           result={quizResult}
+          studentName={studentName}
+          categoryId={selectedCategory}
+          questions={questions}
+          answers={answers}
           onBack={() => setCurrentPage('home')}
         />
       )}
