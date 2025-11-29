@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "heroku-postbuild": "npm run build",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
